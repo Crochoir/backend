@@ -159,7 +159,6 @@ app.get('/api/users', async (req, res) => {
     }
   });
 
-
 server.listen(port, (req, res) => {
     console.log("working on port " + port)
 })
