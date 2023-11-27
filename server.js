@@ -19,7 +19,7 @@ const port = process.env.PORT || 3001;
 const cors = require('cors');
 
 
-mongoose.connect('mongodb+srv://samloar70:Fxsxn9EnFD24wrzi@cluster0.izffnem.mongodb.net/');
+mongoose.connect(process.env.DATABASE_URL);
 
 app.use(cors());
 app.use(express.json());
