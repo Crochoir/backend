@@ -6,6 +6,7 @@ const User = require('./models/User.js');
 const jwt = require("jsonwebtoken");
 require('dotenv').config();
 const Message = require('./models/Message.js');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,13 +34,11 @@ io.on('connection', (socket) => {
   socket.on('init', (user, recipient) => {
     users[socket.id] = user;
   
-    // Emit the list of users to all clients
     io.emit('userList', Object.values(users));
   
     const currentUser = user;
     const selectedRecipient = recipient;
   
-    // Fetch initial messages between the current user and selected recipient
     
   });
 
@@ -79,7 +78,6 @@ io.on('connection', (socket) => {
     return [sender, recipient].sort().join('-');
   }
 
-  // Handle disconnection
   socket.on('disconnect', () => {
     delete users[socket.id];
     io.emit('userList', Object.values(users));
@@ -92,45 +90,51 @@ app.get('/', (req, res) => {
 })
 
 app.post("/api/register", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      // Check if the username is already taken
-      const existingUser = await User.findOne({ username });
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-      // Create a new user
-      const newUser = new User({ username, password });
-      // Save the new user to the database
-      await newUser.save();
-      res.status(201).json({ message: "User registered successfully" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "An error occurred while registering the user" });
+  try {
+    const { username, password } = req.body;
+    // Check if the username is already taken
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists" });
     }
-  });
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({ username, password: hashedPassword });
+
+    await newUser.save();
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "An error occurred while registering the user" });
+  }
+});
 
  
   
   
   // handle authentication
   app.post("/api/auth", async (req, res) => {
-    const { username, password } = req.body;
-    //console.log(process.env.JWT_SECRET)
-  
-    const user = await User.findOne({ username });
-  
-    if (!user) return res.status(400).send("User not found or does not exist");
-  
-    if (user.password !== password)
-      return res.status(400).send("Incorrect password");
-  
-    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-    res.send({ token });
-  
-  });
+    try {
+        const { username, password } = req.body;
+        // Find the user in the database
+        const user = await User.findOne({ username });
 
-  // Add this endpoint to fetch the list of users
+        if (!user) return res.status(400).send("User not found or does not exist");
+
+        // Compare the provided password with the hashed password stored in the database
+        const passwordMatch = await bcrypt.compare(password, user.password);
+
+        if (!passwordMatch) return res.status(400).send("Incorrect password");
+
+        // Generate and send a JWT token upon successful authentication
+        const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
+        res.send({ token });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "An error occurred during authentication" });
+    }
+});
+
 app.get('/api/users', async (req, res) => {
     try {
       const users = await User.find({}, 'username');
