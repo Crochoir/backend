@@ -12,11 +12,11 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-      origin: 'http://192.168.1.8:3000',
+      origin: 'http://'+ process.env.IP +':4000',
       methods: ['GET', 'POST'],
     },
   });
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 4001;
 const cors = require('cors');
 
 
@@ -45,6 +45,7 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', (data) => {
     const room = getRoomName(data.sender, data.recipient);
     socket.join(room);
+    console.log("someone joined room");
   })
 
   // Handle incoming messages
@@ -92,7 +93,6 @@ app.get('/', (req, res) => {
 app.post("/api/register", async (req, res) => {
   try {
     const { username, password } = req.body;
-    // Check if the username is already taken
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: "Username already exists" });
@@ -109,24 +109,17 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
- 
-  
-  
-  // handle authentication
   app.post("/api/auth", async (req, res) => {
     try {
         const { username, password } = req.body;
-        // Find the user in the database
         const user = await User.findOne({ username });
 
         if (!user) return res.status(400).send("User not found or does not exist");
 
-        // Compare the provided password with the hashed password stored in the database
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) return res.status(400).send("Incorrect password");
 
-        // Generate and send a JWT token upon successful authentication
         const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
         res.send({ token });
     } catch (error) {
